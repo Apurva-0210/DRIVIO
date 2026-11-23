@@ -3,8 +3,12 @@ const auth = require('../middleware/auth');
 const pool = require('../db');
 const router = express.Router();
 
-router.get('/', async (req, res) => {
+router.get('/', auth(['admin','manager','customer']), async (req, res) => {
   try {
+    if (req.user?.role === 'customer') {
+      const r = await pool.query('SELECT * FROM bookings WHERE customer_id=$1 ORDER BY booking_id DESC', [req.user.user_id]);
+      return res.json(r.rows);
+    }
     const r = await pool.query('SELECT * FROM bookings ORDER BY booking_id DESC');
     res.json(r.rows);
   } catch (e) { res.status(500).json({ error: 'Failed to list bookings' }); }
@@ -99,6 +103,20 @@ router.post('/:id/seats', auth(['admin','customer','company_admin']), async (req
     if (!Array.isArray(seats) || seats.length === 0) {
       return res.status(400).json({ error: 'seats array required' });
     }
+    // Check if any seat is locked as Admin Quota
+    try {
+      const br = await pool.query('SELECT schedule_id FROM bookings WHERE booking_id=$1', [bookingId]);
+      const sid = br.rows[0]?.schedule_id;
+      if (sid) {
+        const lockCheck = await pool.query('SELECT seat_label FROM admin_seat_locks WHERE schedule_id=$1', [sid]);
+        const lockedLabels = new Set(lockCheck.rows.map((r) => String(r.seat_label).toUpperCase()));
+        for (const s of seats) {
+          if (lockedLabels.has(String(s).toUpperCase())) {
+            return res.status(400).json({ error: `Seat ${s} is reserved under Admin Quota and cannot be booked.` });
+          }
+        }
+      }
+    } catch (_) {}
     // Insert seats
     for (let i=0; i<seats.length; i++) {
       const label = seats[i];

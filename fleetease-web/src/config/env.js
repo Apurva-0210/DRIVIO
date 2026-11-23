@@ -13,15 +13,20 @@ function resolveApiUrl() {
   const fromEnv = readEnv('REACT_APP_API_URL', 'NEXT_PUBLIC_API_URL');
   if (fromEnv) return fromEnv.replace(/\/$/, '');
 
-  // Runtime fallback when env was not set at build (e.g. local build + serve)
+  // Runtime fallback when env was not set at build (e.g. local build + serve or container)
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
+    const port = window.location.port;
     if (host === 'localhost' || host === '127.0.0.1') {
-      return 'http://localhost:5000/api/v1';
+      if (port === '3000') {
+        return 'http://localhost:5001/api/v1';
+      }
+      return `${window.location.origin}/api/v1`;
     }
+    return `${window.location.origin}/api/v1`;
   }
 
-  return 'https://fleetease-e86s.onrender.com/api/v1';
+  return 'http://localhost:5001/api/v1';
 }
 
 function resolveSocketUrl() {
@@ -30,12 +35,17 @@ function resolveSocketUrl() {
 
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
+    const port = window.location.port;
     if (host === 'localhost' || host === '127.0.0.1') {
-      return 'http://localhost:5000';
+      if (port === '3000') {
+        return 'http://localhost:5001';
+      }
+      return window.location.origin;
     }
+    return window.location.origin;
   }
 
-  return 'https://fleetease-e86s.onrender.com';
+  return 'http://localhost:5001';
 }
 
 export const API_URL = resolveApiUrl();

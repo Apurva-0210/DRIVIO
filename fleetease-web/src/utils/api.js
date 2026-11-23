@@ -30,10 +30,31 @@ api.interceptors.response.use(
   (error) => {
     if (!error.response) {
       error.message =
-        'Cannot reach API server. Start backend: cd fleetease-backend && npm run dev';
+        'Cannot reach API server at ' + API_URL + '. Ensure backend is running (port 5001).';
     }
     return Promise.reject(error);
   }
 );
+
+export async function checkApiHealth() {
+  const start = Date.now();
+  try {
+    const res = await axios.get(`${API_URL}/health`, { timeout: 4000 });
+    const latency = Date.now() - start;
+    return {
+      connected: true,
+      latency,
+      data: res.data,
+      url: API_URL
+    };
+  } catch (err) {
+    return {
+      connected: false,
+      latency: Date.now() - start,
+      error: err.message,
+      url: API_URL
+    };
+  }
+}
 
 export default api;

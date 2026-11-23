@@ -4,12 +4,15 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import SeatMap from '../../components/SeatMap';
 import { socket } from '../../utils/socket';
 
+const defaultSources = ['Patna', 'Delhi', 'Mumbai', 'Bengaluru', 'Kolkata', 'Hyderabad', 'Pune', 'Jaipur', 'Muzaffarpur', 'Gaya', 'Chennai', 'Purnea'];
+const defaultDestinations = ['Purnea', 'Jaipur', 'Pune', 'Chennai', 'Muzaffarpur', 'Gaya', 'Chandigarh', 'Ahmedabad', 'Vijayawada', 'Siliguri', 'Delhi', 'Patna', 'Bengaluru', 'Mumbai'];
+
 export default function AgentTrips(){
   const nav = useNavigate();
   const location = useLocation();
   const [form, setForm] = React.useState({ customer_name:'', customer_phone:'', route_id:'', schedule_id:'', seats:'', amount:'', payment_method:'cash' });
   const [showQR, setShowQR] = React.useState(false);
-  const [cities, setCities] = React.useState({ sources: [], destinations: [] });
+  const [cities, setCities] = React.useState({ sources: defaultSources, destinations: defaultDestinations });
   const [source, setSource] = React.useState('');
   const [destination, setDestination] = React.useState('');
   const [dateOut, setDateOut] = React.useState('');
@@ -30,10 +33,10 @@ export default function AgentTrips(){
     (async()=>{ try { await api.post('/agent/ensure'); } catch{} })();
     api.get('/routes/cities')
       .then(r=> setCities({
-        sources: Array.isArray(r.data?.sources)? r.data.sources : [],
-        destinations: Array.isArray(r.data?.destinations)? r.data.destinations : []
+        sources: Array.isArray(r.data?.sources) && r.data.sources.length ? r.data.sources : defaultSources,
+        destinations: Array.isArray(r.data?.destinations) && r.data.destinations.length ? r.data.destinations : defaultDestinations
       }))
-      .catch(()=> setCities({ sources: [], destinations: [] }));
+      .catch(()=> setCities({ sources: defaultSources, destinations: defaultDestinations }));
   },[nav, location]);
 
   // Load schedules when search criteria ready

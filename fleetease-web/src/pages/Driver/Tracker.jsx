@@ -32,22 +32,23 @@ const LiveTracker = () => {
   useEffect(() => {
     if (!tripId) {
       toast.error('No trip specified');
-      navigate('/driver');
+      navigate('/driver/dashboard');
       return;
     }
 
     const fetchTripDetails = async () => {
       try {
         const response = await api.get(`/trips/${tripId}`);
-        setTrip(response.data);
+        const tripData = response.data?.data || response.data;
+        setTrip(tripData);
         
         // Set initial route if available
-        if (response.data.route?.coordinates?.length > 0) {
-          setRoute(response.data.route.coordinates);
+        if (tripData?.route?.coordinates?.length > 0) {
+          setRoute(tripData.route.coordinates);
           // Set initial map view to the first coordinate
           setPosition([
-            response.data.route.coordinates[0][0],
-            response.data.route.coordinates[0][1]
+            tripData.route.coordinates[0][0],
+            tripData.route.coordinates[0][1]
           ]);
         }
       } catch (error) {
@@ -60,8 +61,9 @@ const LiveTracker = () => {
 
     fetchTripDetails();
 
-    // Initialize WebSocket connection
-    const newSocket = io(SOCKET_URL);
+    // Initialize WebSocket connection with authentication
+    const token = localStorage.getItem('token');
+    const newSocket = io(SOCKET_URL, { auth: { token } });
     setSocket(newSocket);
 
     // Set up event listeners
@@ -155,7 +157,7 @@ const LiveTracker = () => {
           <h2 className="text-xl font-semibold text-gray-800">Trip Not Found</h2>
           <p className="text-gray-600 mt-2">The requested trip could not be found or you don't have permission to view it.</p>
           <button
-            onClick={() => navigate('/driver')}
+            onClick={() => navigate('/driver/dashboard')}
             className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />

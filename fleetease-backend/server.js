@@ -11,6 +11,7 @@ const xss = require('xss-clean');
 const hpp = require('hpp');
 const cookieParser = require('cookie-parser');
 const path = require('path');
+const fs = require('fs');
 const { parseCorsOrigins, isOriginAllowed } = require('./utils/corsOrigins');
 const { ensureAgentTables } = require('./utils/ensureAgentTables');
 const { runStartupSeed } = require('./utils/startupSeed');
@@ -37,6 +38,8 @@ const scheduleRoutes = require('./routes/schedules');
 const billRoutes = require('./routes/bills');
 const adminSummary = require('./routes/adminSummary');
 const galleryRoutes = require('./routes/gallery');
+const driverRoutes = require('./routes/driver');
+const fastagRoutes = require('./routes/fastag');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -52,7 +55,12 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Set security HTTP headers
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  })
+);
 
 // Enable CORS (localhost, Vercel previews, and CORS_ORIGIN from env)
 const allowedOrigins = parseCorsOrigins();
@@ -128,14 +136,36 @@ const io = new Server(server, {
 app.set('io', io);
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+const healthHandler = async (req, res) => {
+  let dbStatus = 'disconnected';
+  let dbError = null;
+  try {
+    const pool = require('./db');
+    await Promise.race([
+      pool.query('SELECT 1'),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('DB timeout')), 2000))
+    ]);
+    dbStatus = 'connected';
+  } catch (err) {
+    dbError = err.message || 'Unable to connect to database';
+  }
+
   res.status(200).json({
     status: 'success',
-    message: 'Server is running',
+    message: 'DRIVIO API server is running',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: Math.floor(process.uptime()),
+    database: {
+      status: dbStatus,
+      error: dbError
+    },
+    version: '1.0.0',
+    env: process.env.NODE_ENV || 'development'
   });
-});
+};
+
+app.get('/api/health', healthHandler);
+app.get('/api/v1/health', healthHandler);
 
 // API Routes
 app.use('/api/v1/auth', authRoutes);
@@ -155,29 +185,50 @@ app.use('/api/v1/corp-bookings', corpBookingsRoutes);
 app.use('/api/v1/vehicles', vehiclesRoutes);
 app.use('/api/v1/manager', managerRoutes);
 app.use('/api/v1/agent', agentRoutes);
+app.use('/api/v1/driver', driverRoutes);
+app.use('/api/v1/fastag', fastagRoutes);
 app.use('/api/v1/gallery', galleryRoutes);
 app.get('/api/v1/seats/:schedule_id', adminSeatsHandler);
+app.get('/api/v1/admin/seats/:schedule_id', adminSeatsHandler);
 app.get('/api/v1/admin/summary', auth(['admin']), adminSummary);
 app.get('/api/v1/admin/offline-bookings', auth(['admin']), adminOfflineList);
 app.post('/api/v1/admin/offline-bookings/:id/cancel', auth(['admin']), cancelOffline);
 
-// Handle unhandled routes
+// Serve frontend in production (unified full-stack deployment)
+const clientBuildPath = path.join(__dirname, '../fleetease-web/build');
+if (fs.existsSync(clientBuildPath)) {
+  app.use(express.static(clientBuildPath));
+  app.get('*', (req, res, next) => {
+    // Forward API and socket requests to 404 handler
+    if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/socket.io')) {
+      return next();
+    }
+    res.sendFile(path.join(clientBuildPath, 'index.html'));
+  });
+}
+
+// Handle unhandled routes for API
 app.all('*', (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
 
 // Socket.IO middleware for authentication
 io.use((socket, next) => {
-  const token = socket.handshake.auth.token;
-  if (!token) return next(new Error('Authentication error'));
+  const token = socket.handshake.auth?.token;
+  if (!token) {
+    // Allow public / guest connections for tracking and status broadcasts
+    socket.user = { role: 'guest' };
+    return next();
+  }
   
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'changeme');
     socket.user = decoded;
     next();
   } catch (err) {
-    console.error('Socket auth error:', err.message);
-    next(new Error('Authentication failed'));
+    // If token invalid, allow as guest reader rather than hard dropping socket
+    socket.user = { role: 'guest' };
+    next();
   }
 });
 
@@ -244,27 +295,49 @@ io.on('connection', (socket) => {
 });
 
 // Periodically clean up disconnected clients
-setInterval(() => {
+const pingInterval = setInterval(() => {
   io.emit('ping', { timestamp: Date.now() });
 }, 30000); // 30 seconds
+if (typeof pingInterval.unref === 'function') {
+  pingInterval.unref();
+}
 
 // Error handling middleware (must be after all routes)
 app.use(errorHandler);
 
-// Start server
-const PORT = process.env.PORT || 5000;
+// Start server with fallback if port is in use
+const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 5001;
 
-server.listen(PORT, async () => {
-  console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-  console.log('🌐 API available');
-  try {
-    await ensureAgentTables();
-    await runStartupSeed();
-    console.log('✅ Agent tables, reviews, and gallery manifest verified');
-  } catch (err) {
-    console.error('⚠️ Startup seed warning:', err.message);
-  }
-});
+function startServer(portToTry) {
+  server.listen(portToTry, async () => {
+    console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on port ${portToTry}`);
+    console.log(`🌐 API available at http://localhost:${portToTry}/api/v1`);
+    try {
+      await ensureAgentTables();
+      await runStartupSeed();
+      console.log('✅ Agent tables, reviews, and gallery manifest verified');
+    } catch (err) {
+      console.error('⚠️ Startup seed warning:', err.message);
+    }
+  });
+
+  server.once('error', (err) => {
+    if (err.code === 'EADDRINUSE' && portToTry === 5000) {
+      console.warn(`⚠️ Port 5000 is in use (e.g. macOS AirPlay). Retrying on port 5001...`);
+      startServer(5001);
+    } else {
+      console.error(`💥 Server error on port ${portToTry}:`, err.message);
+    }
+  });
+}
+
+if (require.main === module) {
+  startServer(DEFAULT_PORT);
+}
+
+module.exports = app;
+module.exports.server = server;
+module.exports.app = app;
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {

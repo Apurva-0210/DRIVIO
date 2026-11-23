@@ -36,6 +36,22 @@ module.exports = async (req, res) => {
     for (const row of offQ.rows){
       String(row.seats||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(s=> set.add(s.toUpperCase()))
     }
+    // Admin locked seats (Admin Quota)
+    try {
+      await pool.query(`CREATE TABLE IF NOT EXISTS admin_seat_locks (
+        id SERIAL PRIMARY KEY,
+        schedule_id INT NOT NULL,
+        seat_label VARCHAR(20) NOT NULL,
+        reason TEXT DEFAULT 'Admin Quota',
+        locked_by INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(schedule_id, seat_label)
+      )`);
+      const lockQ = await pool.query('SELECT seat_label FROM admin_seat_locks WHERE schedule_id=$1', [sid]);
+      for (const row of lockQ.rows) {
+        if (row.seat_label) set.add(String(row.seat_label).trim().toUpperCase());
+      }
+    } catch (_) {}
     // Also try to read seats from bookings.* CSV columns if present
     const colsQ = await pool.query(`
       SELECT column_name FROM information_schema.columns

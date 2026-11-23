@@ -4,9 +4,14 @@ process.env.JWT_SECRET = 'test-secret';
 process.env.PORT = 5001; // Use a different port for testing
 
 // Mock the database connection
+const mockClient = {
+  query: jest.fn().mockResolvedValue({ rows: [], rowCount: 1 }),
+  release: jest.fn(),
+};
+
 jest.mock('../db', () => ({
-  query: jest.fn(),
-  connect: jest.fn(),
+  query: jest.fn().mockResolvedValue({ rows: [], rowCount: 1 }),
+  connect: jest.fn().mockResolvedValue(mockClient),
   release: jest.fn(),
 }));
 

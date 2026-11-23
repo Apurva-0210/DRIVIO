@@ -1,11 +1,10 @@
 services:
   - type: web
-    name: fleetease-backend
+    name: drivio-transit-os
     env: node
-    plan: free
-    rootDirectory: fleetease-backend
-    buildCommand: npm install
-    startCommand: node server.js
+    plan: starter
+    buildCommand: npm --prefix fleetease-backend install && npm --prefix fleetease-web install && npm --prefix fleetease-web run build
+    startCommand: node fleetease-backend/server.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -13,30 +12,30 @@ services:
         value: 10000
       - key: DB_HOST
         fromDatabase:
-          name: fleetease-db
+          name: drivio-db
           property: host
       - key: DB_PORT
         fromDatabase:
-          name: fleetease-db
+          name: drivio-db
           property: port
       - key: DB_USER
         fromDatabase:
-          name: fleetease-db
+          name: drivio-db
           property: user
       - key: DB_PASS
         fromDatabase:
-          name: fleetease-db
+          name: drivio-db
           property: password
       - key: DB_NAME
         fromDatabase:
-          name: fleetease-db
+          name: drivio-db
           property: database
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGIN
-        value: https://fleetease-e86s.onrender.com,https://fleetease.vercel.app
+        value: "*"
 
 databases:
-  - name: fleetease-db
+  - name: drivio-db
     databaseName: fleetease
-    user: fleetease_user
+    user: drivio_admin

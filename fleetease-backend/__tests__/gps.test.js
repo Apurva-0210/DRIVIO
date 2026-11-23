@@ -31,8 +31,8 @@ describe('GPS Tracking API', () => {
     // Create a test token
     token = createTestToken({ user_id: 1, role: 'driver' });
     
-    // Start the server
-    server = app.listen(process.env.PORT);
+    // Start the server on an ephemeral free port
+    server = app.listen(0);
   });
 
   afterAll(async () => {

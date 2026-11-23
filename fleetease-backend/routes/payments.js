@@ -24,10 +24,13 @@ router.post('/create-order', async (req, res) => {
 
 // Verify payment and record
 router.post('/verify', async (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, booking_id, amount } = req.body;
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, booking_id, amount } = req.body || {};
   try {
     let verified = true;
-    if (razorpay_signature && process.env.RAZORPAY_KEY_SECRET) {
+    if (process.env.RAZORPAY_KEY_SECRET) {
+      if (!razorpay_signature || !razorpay_order_id || !razorpay_payment_id) {
+        return res.status(400).json({ error: 'Missing required Razorpay payment signature parameters' });
+      }
       const hmac = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
       hmac.update(`${razorpay_order_id}|${razorpay_payment_id}`);
       const digest = hmac.digest('hex');

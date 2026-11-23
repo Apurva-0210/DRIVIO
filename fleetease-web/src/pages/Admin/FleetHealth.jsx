@@ -8,7 +8,8 @@ export default function FleetHealth(){
   useEffect(()=>{
     // In this scaffold, show vehicles from bookings join, or placeholder if none
     api.get('/bookings').then(r=>{
-      const ids = [...new Set(r.data.map(b=>b.vehicle_id))].filter(Boolean);
+      const list = Array.isArray(r.data) ? r.data : (Array.isArray(r.data?.data) ? r.data.data : []);
+      const ids = [...new Set(list.map(b=>b.vehicle_id))].filter(Boolean);
       setVehicles(ids.map(id=>({ vehicle_id:id, speed: Math.round(40+Math.random()*20), fuel: Math.round(40+Math.random()*30) })));
     }).catch(()=> setVehicles([]));
   },[location]);

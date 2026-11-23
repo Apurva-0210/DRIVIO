@@ -46,8 +46,6 @@ router.post('/login', async (req, res) => {
   } catch (e) { console.error("Login error:", e); res.status(500).json({ error: 'Login failed' }); }
 });
 
-module.exports = router;
-
 // Current user profile
 router.get('/me', auth(['admin','customer','driver','company_admin','agent','manager']), async (req, res) => {
   try{
@@ -102,3 +100,5 @@ router.post('/reset', async (req, res) => {
     res.json({ ok:true });
   }catch(e){ res.status(500).json({ error:'Failed to reset password' }); }
 });
+
+module.exports = router;

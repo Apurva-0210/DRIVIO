@@ -58,7 +58,7 @@ router.put('/:vehicle_id/status', auth(['admin','manager']), async (req, res) =>
     const { vehicle_id } = req.params;
     const { status } = req.body || {};
     await pool.query("ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS status TEXT");
-    const allowed = ['active','maintenance','unavailable'];
+    const allowed = ['active','maintenance','unavailable','available'];
     const s = String(status||'').toLowerCase();
     if (!allowed.includes(s)) return res.status(400).json({ error:'Invalid status' });
     const r = await pool.query('UPDATE vehicles SET status=$1 WHERE vehicle_id=$2 RETURNING *',[s, vehicle_id]);

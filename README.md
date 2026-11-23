@@ -1,6 +1,37 @@
-# FleetEase — Fleet Management Database System
+# DRIVIO — Intercity Bus Travel & Fleet Network OS
 
-> A database-driven fleet management system designed to efficiently manage vehicles, drivers, trips, maintenance, and fleet-related operations.
+> Unified intercity coach fleet management, real-time GPS telemetry, counter ticketing, and digital passenger boarding pass platform.
+
+---
+
+## 🚀 Quick Deployment Guide
+
+See [DEPLOYMENT.md](file:///Users/apurva/Downloads/FleetEase-main/DEPLOYMENT.md) for full instructions across Docker, Render, Railway, AWS, and DigitalOcean.
+
+### 1. Local Production Run (Unified Single Service)
+```bash
+# Install dependencies
+npm run install:all
+
+# Build optimized React bundle
+npm run build
+
+# Start production server (serves frontend + backend on port 5000)
+npm start
+```
+Open [http://localhost:5000](http://localhost:5000)
+
+### 2. Docker Deployment
+```bash
+# Option A: Unified single container
+docker build -t drivio-app .
+docker run -d -p 5000:5000 drivio-app
+
+# Option B: Docker Compose (Microservices with PostgreSQL 15 & Nginx)
+docker compose up -d --build
+```
+
+---
 
 ## 📌 Overview
 

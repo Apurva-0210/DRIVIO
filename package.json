@@ -1,0 +1,27 @@
+{
+  "name": "drivio-transit-os",
+  "version": "1.0.0",
+  "description": "DRIVIO - Unified Intercity Bus Fleet Operations & Digital Ticketing Platform",
+  "private": true,
+  "scripts": {
+    "install:all": "npm --prefix fleetease-backend install && npm --prefix fleetease-web install",
+    "build": "npm --prefix fleetease-web run build",
+    "start": "node fleetease-backend/server.js",
+    "dev:backend": "npm --prefix fleetease-backend run dev",
+    "dev:web": "npm --prefix fleetease-web start",
+    "setup:db": "node fleetease-backend/setup_db.js",
+    "seed:reviews": "node fleetease-backend/scripts/seed_reviews.js",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  },
+  "keywords": [
+    "bus-ticketing",
+    "fleet-management",
+    "transit-os",
+    "intercity-transit",
+    "gps-telemetry"
+  ],
+  "author": "DRIVIO Technologies",
+  "license": "UNLICENSED"
+}

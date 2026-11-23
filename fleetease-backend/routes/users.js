@@ -68,7 +68,7 @@ router.delete('/:id', auth(['admin']), async (req, res) => {
     const role = u.rows[0].role;
     if (role === 'admin') return res.status(400).json({ error:'Cannot delete admin accounts' });
     // Prevent deleting driver assigned to a vehicle
-    const drv = await pool.query('SELECT 1 FROM vehicles WHERE driver_user_id=$1 LIMIT 1',[id]);
+    const drv = await pool.query('SELECT 1 FROM vehicles WHERE assigned_driver_id=$1 LIMIT 1',[id]);
     if (drv.rows.length) return res.status(400).json({ error:'Driver is assigned to a vehicle. Unassign first.' });
     // Prevent deleting customers with bookings
     const bk = await pool.query('SELECT 1 FROM bookings WHERE customer_id=$1 LIMIT 1',[id]);
@@ -85,8 +85,8 @@ router.delete('/:id', auth(['admin']), async (req, res) => {
 router.post('/seed-manager', auth(['admin']), async (_req, res) => {
   try{
     await ensureRoleSupportsManager();
-    const email = 'manager@fleetease.com';
-    const name = 'Fleet Manager';
+    const email = 'manager@drivio.com';
+    const name = 'DRIVIO Fleet Manager';
     const phone = '9999999999';
     const password = 'manager123';
     const exists = await pool.query('SELECT user_id FROM users WHERE email=$1',[email]);

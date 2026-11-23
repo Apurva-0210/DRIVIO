@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import api from '../../utils/api';
-import { toast } from '../../components/Toast';
+import api from '../utils/api';
+import { toast } from '../components/Toast';
 
 export default function DriverRoutes(){
   const [rows, setRows] = React.useState([]);

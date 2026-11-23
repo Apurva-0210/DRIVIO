@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Calendar, Clock, MapPin, Clock as ClockIcon, ArrowRight, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, MapPin, Clock as ClockIcon, ArrowRight, CheckCircle, XCircle, AlertCircle, Bus } from 'lucide-react';
 import api from '../../utils/api';
 import { toast } from 'react-hot-toast';
 

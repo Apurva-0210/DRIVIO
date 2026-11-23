@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
+import ToastHost from './components/Toast';
 import ProtectedRoute from './components/ProtectedRoute';
-import RoleRedirect from './components/RoleRedirect';
 
 // Public Pages
 import Home from './pages/Home';
@@ -14,6 +13,8 @@ import BookingCheckout from './pages/BookingCheckout';
 import BookingDetails from './pages/BookingDetails';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Contact from './pages/Contact';
 import Testimonials from './pages/Testimonials';
 import Gallery from './pages/Gallery';
@@ -44,30 +45,44 @@ import DriverLiveTracker from './pages/Driver/Tracker';
 
 // Manager Pages
 import ManagerFleet from './pages/Manager/Fleet';
+import ManagerDashboard from './pages/Manager/Dashboard';
 
 // Company Admin Pages
 import CompanyCharter from './pages/Company/Charter';
 import CompanyRequests from './pages/Company/CharterRequests';
 
 // Customer Pages
-import Bookings from './pages/customer/Bookings';
+import MyBookings from './pages/MyBookings';
 import TrackBus from './pages/TrackBus';
 import Profile from './pages/Profile';
 
 export default function App() {
-  const location = useLocation();
   const token = localStorage.getItem('token');
-  const user = token ? JSON.parse(atob(token.split('.')[1])) : null;
+  let user = null;
+  if (token) {
+    try {
+      user = JSON.parse(atob(token.split('.')[1]));
+    } catch (_) {
+      user = null;
+    }
+  }
 
   // Redirect logged-in users from home to their dashboard
   const HomeRedirect = () => {
-    if (!token) return <Home />;
+    const activeToken = localStorage.getItem('token');
+    if (!activeToken) return <Home />;
+    let activeUser = null;
+    try {
+      activeUser = JSON.parse(atob(activeToken.split('.')[1]));
+    } catch (_) {
+      return <Home />;
+    }
     
-    switch(user?.role) {
+    switch(activeUser?.role) {
       case 'admin': return <Navigate to="/admin/dashboard" replace />;
-      case 'agent': return <Navigate to="/agent/trips" replace />;
+      case 'agent': return <Navigate to="/agent/dashboard" replace />;
       case 'driver': return <Navigate to="/driver/dashboard" replace />;
-      case 'manager': return <Navigate to="/manager/fleet" replace />;
+      case 'manager': return <Navigate to="/manager/dashboard" replace />;
       case 'company_admin': return <Navigate to="/company/charter" replace />;
       case 'customer': return <Navigate to="/my-bookings" replace />;
       default: return <Home />;
@@ -76,8 +91,10 @@ export default function App() {
 
   return (
     <div className="d-flex flex-column min-vh-100">
-      {/* Show navbar on all routes, including admin */}
+      <ToastHost />
+      {/* Original Global Top Navbar */}
       <Navbar />
+
       <div className="flex-grow-1">
         <Routes>
           {/* Public Routes */}
@@ -88,11 +105,14 @@ export default function App() {
           <Route path="/booking/:id" element={<BookingDetails />} />
           <Route path="/login" element={!token ? <Login /> : <Navigate to="/" replace />} />
           <Route path="/register" element={!token ? <Register /> : <Navigate to="/" replace />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/testimonials" element={<Testimonials />} />
           <Route path="/gallery" element={<Gallery />} />
 
           {/* Admin Routes */}
+          <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="/admin/dashboard" element={
             <ProtectedRoute role="admin">
               <AdminDashboard />
@@ -150,18 +170,20 @@ export default function App() {
           } />
 
           {/* Agent Routes */}
-          <Route path="/agent/trips" element={
-            <ProtectedRoute role="agent">
-              <AgentTrips />
-            </ProtectedRoute>
-          } />
+          <Route path="/agent" element={<Navigate to="/agent/dashboard" replace />} />
           <Route path="/agent/dashboard" element={
             <ProtectedRoute role="agent">
               <AgentDashboard />
             </ProtectedRoute>
           } />
+          <Route path="/agent/trips" element={
+            <ProtectedRoute role="agent">
+              <AgentTrips />
+            </ProtectedRoute>
+          } />
 
           {/* Driver Routes */}
+          <Route path="/driver" element={<Navigate to="/driver/dashboard" replace />} />
           <Route path="/driver/dashboard" element={
             <ProtectedRoute role="driver">
               <DriverDashboard />
@@ -189,13 +211,21 @@ export default function App() {
           } />
 
           {/* Manager Routes */}
+          <Route path="/manager" element={<Navigate to="/manager/dashboard" replace />} />
+          <Route path="/manager/dashboard" element={
+            <ProtectedRoute role="manager">
+              <ManagerDashboard />
+            </ProtectedRoute>
+          } />
           <Route path="/manager/fleet" element={
             <ProtectedRoute role="manager">
               <ManagerFleet />
             </ProtectedRoute>
           } />
+          <Route path="/manager/vehicles" element={<Navigate to="/manager/fleet" replace />} />
 
           {/* Company Admin Routes */}
+          <Route path="/company" element={<Navigate to="/company/charter" replace />} />
           <Route path="/company/charter" element={
             <ProtectedRoute role="company_admin">
               <CompanyCharter />
@@ -206,11 +236,12 @@ export default function App() {
               <CompanyRequests />
             </ProtectedRoute>
           } />
+          <Route path="/company/charter/requests" element={<Navigate to="/company/requests" replace />} />
 
           {/* Customer Routes */}
           <Route path="/my-bookings" element={
             <ProtectedRoute>
-              <Bookings />
+              <MyBookings />
             </ProtectedRoute>
           } />
           <Route path="/track-bus" element={<TrackBus />} />
@@ -224,6 +255,8 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
+
+      {/* Original Global Bottom Footer */}
       <Footer />
     </div>
   );

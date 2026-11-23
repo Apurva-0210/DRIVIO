@@ -52,8 +52,9 @@ router.post('/update', updateLimiter, validateGPSUpdate, async (req, res) => {
     status = 'moving'
   } = req.body;
 
-  const client = await pool.connect();
+  let client;
   try {
+    client = await pool.connect();
     await ensureGpsColumns();
     await client.query('BEGIN');
     
@@ -66,14 +67,18 @@ router.post('/update', updateLimiter, validateGPSUpdate, async (req, res) => {
       [vehicle_id, latitude, longitude, speed_kmph, fuel_level, heading_degrees, accuracy_meters, status]
     );
 
-    // Update vehicle's current location
-    await client.query(
-      `UPDATE vehicles 
-       SET last_location = ST_SetSRID(ST_MakePoint($1, $2), 4326),
-           last_updated = NOW()
-       WHERE vehicle_id = $3`,
-      [longitude, latitude, vehicle_id]
-    );
+    // Update vehicle's current location (safe fallback if PostGIS not enabled)
+    try {
+      await client.query(
+        `UPDATE vehicles 
+         SET last_location = ST_SetSRID(ST_MakePoint($1, $2), 4326),
+             last_updated = NOW()
+         WHERE vehicle_id = $3`,
+        [longitude, latitude, vehicle_id]
+      );
+    } catch (_) {
+      // PostGIS extension or last_location column not installed; record is already safely stored in vehicle_locations
+    }
 
     // Get active schedule for this vehicle
     const scheduleResult = await client.query(
@@ -116,14 +121,18 @@ router.post('/update', updateLimiter, validateGPSUpdate, async (req, res) => {
     });
 
   } catch (error) {
-    await client.query('ROLLBACK');
+    if (client) {
+      try { await client.query('ROLLBACK'); } catch (_) {}
+    }
     console.error('GPS update error:', error);
     res.status(500).json({ 
       error: 'Failed to update GPS', 
       details: process.env.NODE_ENV === 'development' ? error.message : undefined 
     });
   } finally {
-    client.release();
+    if (client && typeof client.release === 'function') {
+      try { client.release(); } catch (_) {}
+    }
   }
 });
 

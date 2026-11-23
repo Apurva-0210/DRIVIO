@@ -12,7 +12,7 @@ async function generateInvoicePDF(bookingId) {
     .query('SELECT * FROM schedules WHERE schedule_id=$1', [booking.schedule_id])
     .then(r=> r.rows[0] || null);
   const customer = await pool
-    .query('SELECT user_id, name, email, phone, address, role FROM users WHERE user_id=$1', [booking.user_id])
+    .query('SELECT user_id, name, email, phone, address, role FROM users WHERE user_id=$1', [booking.customer_id || booking.user_id || 0])
     .then(r=> r.rows[0] || {});
   const pRes = await pool.query('SELECT amount, method, status, created_at FROM payments WHERE booking_id=$1 AND status=$2 ORDER BY created_at DESC LIMIT 1', [bookingId, 'success']);
   const lastPay = pRes.rows[0] || null;
@@ -20,8 +20,8 @@ async function generateInvoicePDF(bookingId) {
   const paid = Number(totalPaidRes.rows[0].paid || 0);
 
   const company = {
-    name: 'Fleetease Mobility Pvt. Ltd.',
-    email: 'care@fleetease.in',
+    name: 'DRIVIO Mobility Solutions Pvt. Ltd.',
+    email: 'support@drivio.in',
     phone: '+91 20 6718 6800',
     addr1: 'Unit 804, Phoenix Workspaces',
     addr2: 'Baner–Pashan Link Road, Pune 411045',

@@ -49,7 +49,6 @@ router.post('/', auth(['admin']), async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Failed to create schedule', details: e.message }); }
 });
 
-module.exports = router;
 // Update schedule (admin only)
 router.put('/:id', auth(['admin']), async (req, res) => {
   try{
@@ -82,8 +81,9 @@ router.delete('/:id', auth(['admin']), async (req, res) => {
 
 // Cancel an entire schedule: mark schedule cancelled and refund all bookings 100%
 router.post('/:id/cancel', auth(['admin']), async (req, res) => {
-  const client = await pool.connect();
+  let client;
   try{
+    client = await pool.connect();
     const sid = req.params.id;
     await client.query('BEGIN');
     // Mark schedule cancelled
@@ -132,7 +132,92 @@ router.post('/:id/cancel', auth(['admin']), async (req, res) => {
     await client.query('COMMIT');
     res.json({ ok:true, cancelled_bookings: bok.rows.length, cancelled_offline: off.rows.length });
   }catch(e){
-    await client.query('ROLLBACK');
+    if (client) {
+      try { await client.query('ROLLBACK'); } catch (_) {}
+    }
     res.status(500).json({ error:'Failed to cancel schedule', details: e.message });
-  }finally{ client.release(); }
+  }finally{
+    if (client) client.release();
+  }
 });
+
+// Admin Quota: Get locked seats for a schedule
+router.get('/:id/locked-seats', async (req, res) => {
+  try {
+    const sid = Number(req.params.id);
+    await pool.query(`CREATE TABLE IF NOT EXISTS admin_seat_locks (
+      id SERIAL PRIMARY KEY,
+      schedule_id INT NOT NULL,
+      seat_label VARCHAR(20) NOT NULL,
+      reason TEXT DEFAULT 'Admin Quota',
+      locked_by INT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(schedule_id, seat_label)
+    )`);
+    const r = await pool.query('SELECT * FROM admin_seat_locks WHERE schedule_id=$1 ORDER BY id ASC', [sid]);
+    const lockedList = r.rows.map((row) => String(row.seat_label).toUpperCase());
+    res.json({ locked: lockedList, details: r.rows });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch locked seats', details: e.message });
+  }
+});
+
+// Admin Quota: Lock a seat
+router.post('/:id/lock-seat', auth(['admin']), async (req, res) => {
+  try {
+    const sid = Number(req.params.id);
+    const { seat_label, reason = 'Admin Quota' } = req.body || {};
+    if (!seat_label) return res.status(400).json({ error: 'seat_label is required' });
+
+    await pool.query(`CREATE TABLE IF NOT EXISTS admin_seat_locks (
+      id SERIAL PRIMARY KEY,
+      schedule_id INT NOT NULL,
+      seat_label VARCHAR(20) NOT NULL,
+      reason TEXT DEFAULT 'Admin Quota',
+      locked_by INT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(schedule_id, seat_label)
+    )`);
+
+    const formattedLabel = String(seat_label).trim().toUpperCase();
+    const r = await pool.query(
+      `INSERT INTO admin_seat_locks (schedule_id, seat_label, reason, locked_by)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (schedule_id, seat_label) DO UPDATE SET reason = EXCLUDED.reason
+       RETURNING *`,
+      [sid, formattedLabel, reason, req.user?.user_id || null]
+    );
+
+    try {
+      const io = req.app.get('io');
+      io && io.to(`schedule_${sid}`).emit('seats_updated');
+    } catch (_) {}
+
+    res.json({ ok: true, locked_seat: r.rows[0] });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to lock seat', details: e.message });
+  }
+});
+
+// Admin Quota: Unlock a seat
+router.post('/:id/unlock-seat', auth(['admin']), async (req, res) => {
+  try {
+    const sid = Number(req.params.id);
+    const { seat_label } = req.body || {};
+    if (!seat_label) return res.status(400).json({ error: 'seat_label is required' });
+
+    const formattedLabel = String(seat_label).trim().toUpperCase();
+    await pool.query('DELETE FROM admin_seat_locks WHERE schedule_id=$1 AND UPPER(seat_label)=$2', [sid, formattedLabel]);
+
+    try {
+      const io = req.app.get('io');
+      io && io.to(`schedule_${sid}`).emit('seats_updated');
+    } catch (_) {}
+
+    res.json({ ok: true, unlocked_seat: formattedLabel });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to unlock seat', details: e.message });
+  }
+});
+
+module.exports = router;

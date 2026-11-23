@@ -1,11 +1,14 @@
 version: '3.8'
 
 services:
+  # ============================================================================
+  # 1. DRIVIO Backend API & Socket Service
+  # ============================================================================
   backend:
     build:
       context: ./fleetease-backend
       dockerfile: Dockerfile
-    container_name: fleetease-backend
+    container_name: drivio-backend
     restart: unless-stopped
     ports:
       - "5000:5000"
@@ -17,32 +20,39 @@ services:
       - DB_USER=postgres
       - DB_PASS=postgres
       - DB_NAME=fleetease
-      - JWT_SECRET=your-secret-key-here
-      - CORS_ORIGIN=http://localhost:3000,http://127.0.0.1:3000
+      - JWT_SECRET=drivio-enterprise-jwt-secret-2026-production
+      - CORS_ORIGIN=http://localhost:3000,http://127.0.0.1:3000,http://localhost:5000
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
-      - fleetease-network
+      - drivio-network
 
+  # ============================================================================
+  # 2. DRIVIO Frontend (Nginx Reverse Proxy)
+  # ============================================================================
   frontend:
     build:
       context: ./fleetease-web
       dockerfile: Dockerfile
-    container_name: fleetease-frontend
+      args:
+        - REACT_APP_API_URL=/api/v1
+        - REACT_APP_SOCKET_URL=/
+    container_name: drivio-frontend
     restart: unless-stopped
     ports:
       - "3000:80"
-    environment:
-      - REACT_APP_API_URL=http://backend:5000/api/v1
-      - REACT_APP_SOCKET_URL=http://backend:5000
     depends_on:
       - backend
     networks:
-      - fleetease-network
+      - drivio-network
 
+  # ============================================================================
+  # 3. PostgreSQL Database
+  # ============================================================================
   db:
-    image: postgres:13
-    container_name: fleetease-db
+    image: postgres:15-alpine
+    container_name: drivio-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
@@ -52,25 +62,16 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fleetease"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
-      - fleetease-network
-
-  pgadmin:
-    container_name: pgadmin
-    image: dpage/pgadmin4
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@fleetease.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "5050:80"
-    depends_on:
-      - db
-    networks:
-      - fleetease-network
+      - drivio-network
 
 networks:
-  fleetease-network:
+  drivio-network:
     driver: bridge
 
 volumes:

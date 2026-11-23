@@ -14,11 +14,32 @@ export default function Schedules(){
   const [destination, setDestination] = React.useState('');
   const [dateOut, setDateOut] = React.useState('');
   const [cities, setCities] = React.useState({ sources:[], destinations:[] });
-  const [seatView, setSeatView] = React.useState({ open:false, schedule:null, taken:[], layoutType:'2x2', upperDeck:false });
+  const [seatView, setSeatView] = React.useState({
+    open: false,
+    schedule: null,
+    taken: [],
+    locked: [],
+    selectedSeat: null,
+    layoutType: '2x2',
+    upperDeck: false,
+    working: false,
+  });
   const [seatsCount, setSeatsCount] = React.useState({}); // { [schedule_id]: { booked, total } }
   const [cancelModal, setCancelModal] = React.useState({ open:false, schedule:null, working:false, result:null });
   const nav = useNavigate();
   const location = useLocation();
+
+  // Lock background body scroll whenever modal is open
+  React.useEffect(() => {
+    if (seatView.open || cancelModal.open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [seatView.open, cancelModal.open]);
   const [mapsReady, setMapsReady] = React.useState(!!(typeof window!=='undefined' && window.google && window.google.maps && window.google.maps.places));
   const acRefs = React.useRef({});
 
@@ -270,13 +291,17 @@ export default function Schedules(){
                       <div className="btn-group btn-group-sm">
                         <button className="btn btn-outline-secondary" onMouseEnter={()=>loadCount(r)} onClick={async ()=>{
                           try{
-                            const res = await api.get(`/admin/seats/${r.schedule_id}`);
-                            const taken = Array.isArray(res.data)? res.data : [];
+                            const [resSeats, resLocked] = await Promise.all([
+                              api.get(`/admin/seats/${r.schedule_id}`).catch(() => ({ data: [] })),
+                              api.get(`/schedules/${r.schedule_id}/locked-seats`).catch(() => ({ data: { locked: [] } }))
+                            ]);
+                            const taken = Array.isArray(resSeats.data) ? resSeats.data : [];
+                            const locked = Array.isArray(resLocked.data?.locked) ? resLocked.data.locked : [];
                             const t = (r.seat_layout || r.bus_type || r.vehicle_type || '').toString().toLowerCase();
                             let lt = '2x2';
                             if (t.includes('luxury')) lt = '2x1_luxury'; else if (t.includes('sleeper') || t.includes('2x1')) lt = '2x1_sleeper';
-                            setSeatView({ open:true, schedule:r, taken, layoutType:lt, upperDeck: lt!=='2x2' });
-                          }catch{ setSeatView({ open:true, schedule:r, taken:[], layoutType:'2x2', upperDeck:false }); }
+                            setSeatView({ open:true, schedule:r, taken, locked, selectedSeat:null, layoutType:lt, upperDeck: lt!=='2x2', working:false });
+                          }catch{ setSeatView({ open:true, schedule:r, taken:[], locked:[], selectedSeat:null, layoutType:'2x2', upperDeck:false, working:false }); }
                         }}>View Seats{seatsCount[r.schedule_id]? ` (${seatsCount[r.schedule_id].booked}/${seatsCount[r.schedule_id].total})` : ''}</button>
                         <button className="btn btn-outline-warning" onClick={()=> setCancelModal({ open:true, schedule:r, working:false, result:null })}>Cancel Trip</button>
                         <button className="btn btn-outline-danger" onClick={()=>remove(r.schedule_id)}>Delete</button>
@@ -290,23 +315,170 @@ export default function Schedules(){
         </>
       )}
 
+      {/* COMPACT VIEW SEATS & ADMIN QUOTA CONTROLS MODAL */}
       {seatView.open && (
-        <div className="position-fixed top-0 start-0 w-100 h-100" style={{background:'rgba(0,0,0,0.5)', zIndex:1050}} onClick={()=> setSeatView(v=>({...v, open:false}))}>
-          <div className="position-absolute top-50 start-50 translate-middle bg-white p-3 rounded-3" style={{width:'min(90vw, 900px)'}} onClick={(e)=>e.stopPropagation()}>
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <div className="fw-semibold">Seat Status — Schedule #{seatView.schedule?.schedule_id}</div>
-              <button className="btn btn-sm btn-outline-secondary" onClick={()=> setSeatView(v=>({...v, open:false}))}>Close</button>
-            </div>
-            <div className="row">
-              <div className="col-md-8">
-                <SeatMap layoutType={seatView.layoutType} upperDeck={seatView.upperDeck} rows={10} selected={[]} onToggle={()=>{}} disabledSeats={seatView.taken} />
+        <div
+          className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3"
+          style={{ background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(3px)', zIndex: 1050 }}
+          onClick={() => setSeatView((v) => ({ ...v, open: false }))}
+        >
+          <div
+            className="bg-white rounded-3 shadow-lg border d-flex flex-column"
+            style={{
+              width: 'min(94vw, 760px)',
+              maxHeight: '88vh',
+              borderColor: '#E2E8F0',
+              overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="d-flex justify-content-between align-items-center px-4 py-3 border-bottom" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}>
+              <div>
+                <div className="d-flex align-items-center gap-2">
+                  <span className="badge bg-primary text-white" style={{ fontSize: '0.7rem' }}>
+                    Schedule #{seatView.schedule?.schedule_id}
+                  </span>
+                  <span className="fw-bold" style={{ fontSize: '0.9375rem', color: '#0F172A' }}>
+                    {seatView.schedule?.source} → {seatView.schedule?.destination}
+                  </span>
+                </div>
+                <div className="text-muted small mt-0.5" style={{ fontSize: '0.75rem' }}>
+                  {seatView.schedule?.bus_number} • {seatView.schedule?.bus_type || seatView.schedule?.vehicle_type || 'AC Seater'} • Departure: {seatView.schedule?.departure ? new Date(seatView.schedule.departure).toLocaleDateString() : '—'}
+                </div>
               </div>
-              <div className="col-md-4">
-                <div className="small text-muted mb-2">Legend</div>
-                <div className="mb-2"><span className="badge bg-secondary me-2">Taken</span> Booked (online/offline)</div>
-                <div className="mb-2"><span className="badge bg-light text-dark me-2">Available</span> Free</div>
-                <div className="small text-muted">Route: {seatView.schedule?.source} → {seatView.schedule?.destination}</div>
-                <div className="small text-muted">Departure: {seatView.schedule?.departure ? new Date(seatView.schedule.departure).toLocaleString() : '—'}</div>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => setSeatView((v) => ({ ...v, open: false }))}
+              >
+                Close
+              </button>
+            </div>
+
+            {/* Modal Scrollable Body */}
+            <div className="p-3 p-md-4 overflow-auto flex-grow-1">
+              <div className="row g-3">
+                <div className="col-12 col-md-7">
+                  <div className="p-2 border rounded-2" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}>
+                    <SeatMap
+                      layoutType={seatView.layoutType}
+                      upperDeck={seatView.upperDeck}
+                      rows={10}
+                      compact={true}
+                      adminMode={true}
+                      selected={seatView.selectedSeat ? [seatView.selectedSeat] : []}
+                      disabledSeats={seatView.taken}
+                      lockedSeats={seatView.locked}
+                      onToggle={(seatLabel) => {
+                        setSeatView((v) => ({
+                          ...v,
+                          selectedSeat: v.selectedSeat === seatLabel ? null : seatLabel,
+                        }));
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="col-12 col-md-5">
+                  <div className="p-3 bg-light rounded-3 border h-100" style={{ borderColor: '#E2E8F0' }}>
+                    <div className="fw-bold mb-2" style={{ fontSize: '0.875rem', color: '#0F172A' }}>
+                      Admin Quota & Seat Controls
+                    </div>
+                    <p className="text-muted small mb-3" style={{ fontSize: '0.75rem' }}>
+                      Click on any seat on the left layout to select it, then toggle locking as Admin Quota or releasing back to public booking.
+                    </p>
+
+                    {seatView.selectedSeat ? (
+                      <div className="p-2.5 bg-white rounded-2 border mb-3" style={{ borderColor: '#CBD5E1' }}>
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <span className="text-muted small">Selected Seat:</span>
+                          <span className="badge bg-dark fs-6">{seatView.selectedSeat}</span>
+                        </div>
+                        <div className="d-flex justify-content-between align-items-center mb-3">
+                          <span className="text-muted small">Current Status:</span>
+                          {seatView.locked.includes(String(seatView.selectedSeat).toUpperCase()) ? (
+                            <span className="badge bg-warning text-dark">Locked (Admin Quota)</span>
+                          ) : seatView.taken.includes(String(seatView.selectedSeat).toUpperCase()) ? (
+                            <span className="badge bg-secondary">Booked (Passenger)</span>
+                          ) : (
+                            <span className="badge bg-success">Available (Public)</span>
+                          )}
+                        </div>
+
+                        {seatView.locked.includes(String(seatView.selectedSeat).toUpperCase()) ? (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger w-100"
+                            disabled={seatView.working}
+                            onClick={async () => {
+                              try {
+                                setSeatView((v) => ({ ...v, working: true }));
+                                await api.post(`/schedules/${seatView.schedule.schedule_id}/unlock-seat`, {
+                                  seat_label: seatView.selectedSeat,
+                                });
+                                toast(`Seat ${seatView.selectedSeat} released to public`, 'success');
+                                const resLocked = await api.get(`/schedules/${seatView.schedule.schedule_id}/locked-seats`);
+                                setSeatView((v) => ({
+                                  ...v,
+                                  locked: resLocked.data?.locked || [],
+                                  working: false,
+                                }));
+                              } catch (err) {
+                                toast('Failed to unlock seat', 'error');
+                                setSeatView((v) => ({ ...v, working: false }));
+                              }
+                            }}
+                          >
+                            {seatView.working ? 'Releasing…' : 'Unlock Seat (Release)'}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-warning w-100 fw-semibold"
+                            disabled={seatView.working || seatView.taken.includes(String(seatView.selectedSeat).toUpperCase())}
+                            onClick={async () => {
+                              try {
+                                setSeatView((v) => ({ ...v, working: true }));
+                                await api.post(`/schedules/${seatView.schedule.schedule_id}/lock-seat`, {
+                                  seat_label: seatView.selectedSeat,
+                                  reason: 'Admin Quota',
+                                });
+                                toast(`Seat ${seatView.selectedSeat} locked as Admin Quota`, 'success');
+                                const resLocked = await api.get(`/schedules/${seatView.schedule.schedule_id}/locked-seats`);
+                                setSeatView((v) => ({
+                                  ...v,
+                                  locked: resLocked.data?.locked || [],
+                                  working: false,
+                                }));
+                              } catch (err) {
+                                toast('Failed to lock seat', 'error');
+                                setSeatView((v) => ({ ...v, working: false }));
+                              }
+                            }}
+                          >
+                            {seatView.working ? 'Locking…' : 'Lock as Admin Quota'}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="alert alert-info py-2 px-3 small mb-3" style={{ fontSize: '0.75rem' }}>
+                        👉 Select a seat on the left layout to lock or unlock it.
+                      </div>
+                    )}
+
+                    <div className="pt-2 border-top" style={{ borderColor: '#E2E8F0', fontSize: '0.75rem' }}>
+                      <div className="d-flex justify-content-between py-1">
+                        <span className="text-muted">Total Quota Locked:</span>
+                        <strong className="text-warning-emphasis">{seatView.locked?.length || 0} seats</strong>
+                      </div>
+                      <div className="d-flex justify-content-between py-1">
+                        <span className="text-muted">Booked / Taken:</span>
+                        <strong>{seatView.taken?.length || 0} seats</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
