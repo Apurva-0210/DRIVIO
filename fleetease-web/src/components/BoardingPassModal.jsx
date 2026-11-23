@@ -6,7 +6,6 @@ import {
   X, 
   Download, 
   Printer, 
-  Edit3, 
   CheckCircle2, 
   MapPin, 
   Calendar, 
@@ -16,21 +15,18 @@ import {
   Armchair,
   Bus,
   ShieldCheck,
-  User,
-  Sparkles
+  Lock
 } from 'lucide-react';
 
 export default function BoardingPassModal({ booking, onClose }) {
   const ticketRef = useRef(null);
   const [downloading, setDownloading] = useState(false);
 
-  // Editable passenger state
-  const [passengerName, setPassengerName] = useState(
-    booking?.passenger_name || booking?.customer_name || 'Apurva Sharma'
-  );
-  const [passengerAge, setPassengerAge] = useState(booking?.passenger_age || '28');
-  const [passengerGender, setPassengerGender] = useState(booking?.passenger_gender || 'Male');
-  const [seatLabel, setSeatLabel] = useState(booking?.seat_label || booking?.seats || '12A');
+  // Official verified booking details (immutable after purchase)
+  const passengerName = booking?.passenger_name || booking?.customer_name || 'Apurva Sharma';
+  const passengerAge = booking?.passenger_age || '28';
+  const passengerGender = booking?.passenger_gender || 'Male';
+  const seatLabel = booking?.seat_label || booking?.seats || '12A';
 
   // Format booking details
   const ticketId = booking?.ticket_id || booking?.booking_id 
@@ -169,78 +165,26 @@ export default function BoardingPassModal({ booking, onClose }) {
           </div>
 
           <div className="modal-body p-4">
-            {/* Passenger Customization Strip */}
+            {/* Official Confirmed Status Notice */}
             <div
-              className="p-3 mb-4 rounded-3 bg-white"
+              className="d-flex align-items-center justify-content-between p-2.5 px-3 mb-4 rounded-3"
               style={{
+                background: '#F8FAFC',
                 border: '1px solid #E2E8F0',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                fontSize: '0.8125rem',
               }}
             >
-              <div className="d-flex align-items-center justify-content-between mb-2">
-                <span className="d-flex align-items-center gap-1 text-primary fw-semibold" style={{ fontSize: '0.8125rem' }}>
-                  <Edit3 size={14} />
-                  <span>Customize Passenger Information Before Download</span>
-                </span>
-                <span className="badge bg-light text-secondary border" style={{ fontSize: '0.7rem' }}>
-                  Changes sync immediately to boarding stub
-                </span>
+              <div className="d-flex align-items-center gap-2 text-dark">
+                <ShieldCheck size={16} color="#059669" />
+                <span className="fw-semibold">Verified Confirmed Boarding Pass</span>
+                <span className="text-muted">•</span>
+                <span className="text-muted">Passenger: <strong>{passengerName}</strong></span>
+                <span className="text-muted">•</span>
+                <span className="text-muted">Seat Assigned: <strong className="text-primary">{seatLabel}</strong></span>
               </div>
-              <div className="row g-2">
-                <div className="col-12 col-md-5">
-                  <label className="form-label mb-1" style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B' }}>
-                    Passenger Full Name
-                  </label>
-                  <div className="input-group input-group-sm">
-                    <span className="input-group-text bg-light text-muted">
-                      <User size={13} />
-                    </span>
-                    <input
-                      type="text"
-                      className="form-control fw-medium"
-                      value={passengerName}
-                      onChange={(e) => setPassengerName(e.target.value)}
-                      placeholder="e.g. Apurva Sharma"
-                    />
-                  </div>
-                </div>
-                <div className="col-6 col-md-2">
-                  <label className="form-label mb-1" style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B' }}>
-                    Seat Assigned
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm fw-bold text-center"
-                    value={seatLabel}
-                    onChange={(e) => setSeatLabel(e.target.value)}
-                    placeholder="12A"
-                  />
-                </div>
-                <div className="col-3 col-md-2">
-                  <label className="form-label mb-1" style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B' }}>
-                    Age
-                  </label>
-                  <input
-                    type="number"
-                    className="form-control form-control-sm text-center"
-                    value={passengerAge}
-                    onChange={(e) => setPassengerAge(e.target.value)}
-                  />
-                </div>
-                <div className="col-3 col-md-3">
-                  <label className="form-label mb-1" style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B' }}>
-                    Gender
-                  </label>
-                  <select
-                    className="form-select form-select-sm"
-                    value={passengerGender}
-                    onChange={(e) => setPassengerGender(e.target.value)}
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
+              <div className="d-flex align-items-center gap-1.5 text-secondary" style={{ fontSize: '0.75rem' }}>
+                <Lock size={12} className="text-muted" />
+                <span className="badge bg-white text-secondary border">Non-Transferable</span>
               </div>
             </div>
 
