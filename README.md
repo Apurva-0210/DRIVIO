@@ -4,137 +4,75 @@
 
 ---
 
-## 🚀 Quick Deployment Guide
-
-See [DEPLOYMENT.md](file:///Users/apurva/Downloads/FleetEase-main/DEPLOYMENT.md) for full instructions across Docker, Render, Railway, AWS, and DigitalOcean.
-
-### 1. Local Production Run (Unified Single Service)
-```bash
-# Install dependencies
-npm run install:all
-
-# Build optimized React bundle
-npm run build
-
-# Start production server (serves frontend + backend on port 5000)
-npm start
-```
-Open [http://localhost:5000](http://localhost:5000)
-
-### 2. Docker Deployment
-```bash
-# Option A: Unified single container
-docker build -t drivio-app .
-docker run -d -p 5000:5000 drivio-app
-
-# Option B: Docker Compose (Microservices with PostgreSQL 15 & Nginx)
-docker compose up -d --build
-```
-
----
-
 ## 📌 Overview
 
-**FleetEase** is a Database Management System (DBMS) project developed to provide a centralized platform for managing and organizing fleet-related information.
+**DRIVIO** is a production-grade full-stack transit management platform connecting intercity bus fleet operations, station counters, coach drivers, and passengers:
 
-The system focuses on maintaining structured records for vehicles, drivers, trips, maintenance activities, and other operational data while demonstrating core database concepts such as relational data modeling, normalization, SQL queries, constraints, and transaction management.
-
----
-
-## 🎯 Objectives
-
-The main objectives of FleetEase are to:
-
-- Centralize fleet-related information in a structured database.
-- Maintain vehicle and driver records efficiently.
-- Manage trip and operational information.
-- Track vehicle maintenance and service history.
-- Reduce redundant data through proper database design.
-- Provide efficient querying and retrieval of fleet information.
-- Demonstrate practical implementation of DBMS concepts.
+- **Executive & Operational Command**: Real-time fleet health, route throughput, fuel/FASTag expense tracking, and driver compliance monitoring.
+- **Station Counter Ticketing**: Counter terminal for rapid cash/UPI ticket generation and manifest reconciliation.
+- **Driver Duty Console**: Real-time vehicle telematics, route waypoints, and passenger boarding checklists.
+- **Customer Experience & Loyalty**: Real-time seat reservation, verified digital boarding passes with high-res QR codes and barcodes, 300 DPI PDF download, and DRIVIO Miles Club points tracking.
+- **Seat Privacy & Admin Quota Engine**: Complete isolation where customer seat maps mask quota-locked seats as standard occupied bookings.
 
 ---
 
-## 🚛 Key Features
+## 🚀 Quick Start
 
-### Vehicle Management
-- Add and manage vehicle records.
-- Maintain vehicle specifications and registration information.
-- Track vehicle status and availability.
+### 1. Local Run (Unified Single Service)
+Run both backend API and frontend on a single port:
 
-### Driver Management
-- Maintain driver profiles.
-- Store relevant driver information.
-- Associate drivers with fleet operations.
+```bash
+# Install dependencies for both backend and frontend
+npm run install:all
 
-### Trip Management
-- Record trip-related information.
-- Associate vehicles and drivers with trips.
-- Track trip status and operational details.
+# Build optimized React frontend bundle
+npm run build
 
-### Maintenance Management
-- Maintain vehicle service records.
-- Track maintenance activities.
-- Store maintenance history for individual vehicles.
-
-### Database Operations
-- CRUD operations for major entities.
-- Relational data management.
-- SQL-based querying and filtering.
-- Primary and foreign key constraints.
-- Data integrity enforcement.
+# Start production server
+npm start
+```
+Open **[http://localhost:5000](http://localhost:5000)** in your browser.
 
 ---
 
-## 🗃️ Database Design
+### 2. Docker Deployment
 
-FleetEase follows a relational database architecture.
+#### Option A: Unified Container (Single Port)
+```bash
+docker build -t drivio-app .
+docker run -d -p 5000:5000 --name drivio-app drivio-app
+```
+Open **[http://localhost:5000](http://localhost:5000)**
 
-### Core Entities
+#### Option B: Docker Compose (Microservices with PostgreSQL 15 & Nginx)
+```bash
+docker compose up -d --build
+```
+- **Frontend (Nginx)**: `http://localhost:3000`
+- **Backend API**: `http://localhost:5000`
+- **PostgreSQL 15**: `localhost:5432`
 
-The database consists of entities such as:
+---
 
-- `Vehicle`
-- `Driver`
-- `Trip`
-- `Maintenance`
-- `[ADD OTHER TABLES FROM YOUR PROJECT]`
+## 🔑 Default Portal Credentials
 
-### Entity Relationship Diagram
+| Role | Email | Password | Access Portal |
+| :--- | :--- | :--- | :--- |
+| **System Administrator** | `admin@drivio.com` | `admin123` | `/admin/dashboard` |
+| **Fleet Operations Manager** | `manager@drivio.com` | `manager123` | `/manager/dashboard` |
+| **Commercial Coach Driver** | `driver@drivio.com` | `driver123` | `/driver/dashboard` |
+| **Station Counter Agent** | `agent@drivio.com` | `agent123` | `/agent/dashboard` |
+| **Passenger / Customer** | `customer@drivio.com` | `customer123` | `/my-bookings` |
 
-```mermaid
-erDiagram
+---
 
-    DRIVER ||--o{ TRIP : assigned
-    VEHICLE ||--o{ TRIP : used
-    VEHICLE ||--o{ MAINTENANCE : undergoes
+## 🛠️ Tech Stack
 
-    DRIVER {
-        int driver_id PK
-        string name
-        string contact
-        string license_no
-    }
+- **Frontend**: React 18, React Router 6, Bootstrap 5, Lucide Icons, html2canvas, jsPDF, QRCodeSVG
+- **Backend**: Node.js, Express, Socket.IO, PostgreSQL (with resilient in-memory fallback engine), Helmet, JWT, Rate Limiting
+- **Deployment**: Docker, Docker Compose, Nginx, Render Blueprint (`render.yaml`), Procfile
 
-    VEHICLE {
-        int vehicle_id PK
-        string registration_no
-        string vehicle_type
-        string status
-    }
+---
 
-    TRIP {
-        int trip_id PK
-        int driver_id FK
-        int vehicle_id FK
-        date trip_date
-        string status
-    }
-
-    MAINTENANCE {
-        int maintenance_id PK
-        int vehicle_id FK
-        date service_date
-        string service_type
-        decimal cost
-    }
+## 📄 License
+UNLICENSED — All rights reserved.

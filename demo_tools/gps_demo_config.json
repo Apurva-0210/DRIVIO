@@ -1,5 +1,0 @@
-{
-  "baseUrl": "http://localhost:5000",
-  "vehicle_id": 1,
-  "intervalMs": 5000
-}
