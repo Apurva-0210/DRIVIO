@@ -1,6 +1,17 @@
 node_modules/
 .env
+.env.local
+.env.*.local
 build/
 dist/
 coverage/
 .DS_Store
+*.log
+
+# Agent & QA Reports
+.agents/
+*_REPORT.md
+*_AUDIT.md
+DEFECT_REGISTER.md
+COMPONENT_INVENTORY.md
+RELEASE_READINESS.md
